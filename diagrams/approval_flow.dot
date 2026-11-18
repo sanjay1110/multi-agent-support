@@ -1,0 +1,27 @@
+digraph H {
+  rankdir=TB; nodesep=0.4; ranksep=0.35;
+  graph [fontname="Helvetica", label="Refund request — human-in-the-loop flow", labelloc=t, fontsize=16, bgcolor="white", pad=0.3];
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#F4F6FA", color="#5B6B8C"];
+  edge [fontname="Helvetica", fontsize=9, color="#5B6B8C"];
+
+  a [label="Customer: \"Refund ORD-1001\""];
+  b [label="Guardrail: no injection, PII redacted"];
+  c [label="Router → refund (order_id=ORD-1001)"];
+  d [label="Refund Agent → check_refund_eligibility"];
+  e [label="eligible?", shape=diamond, fillcolor="#FFFFFF"];
+  f [label="Explain reason + alternative\n(outcome = ineligible)"];
+  g [label="Refund Agent → issue_refund(amount ≤ total)"];
+  h [label="Executor: allow-list ✓  schema ✓  owner ✓\nprecheck ✓ → create APR-xxxx (pending)\nNOT executed", fillcolor="#FDECEC", color="#C0504D"];
+  i [label="Reply: \"submitted for review, ref APR-xxxx\"\n(outcome = pending_approval)"];
+  j [label="Support lead: POST /v1/approvals/APR-xxxx/decision", fillcolor="#FBF4E6"];
+  k [label="approve?", shape=diamond, fillcolor="#FFFFFF"];
+  l [label="Re-check rules → execute refund\nstatus = executed, order = refunded", fillcolor="#EAF5EC", color="#4F8A5B"];
+  m [label="status = rejected\nnothing executed"];
+  n [label="Audit log entry (hash-chained) at every step", shape=note, fillcolor="#FFFFFF"];
+
+  a -> b -> c -> d -> e;
+  e -> f [label="no"]; e -> g [label="yes"];
+  g -> h -> i; h -> j [style=dashed];
+  j -> k; k -> l [label="yes"]; k -> m [label="no"];
+  l -> n [style=dotted, arrowhead=none]; m -> n [style=dotted, arrowhead=none];
+}

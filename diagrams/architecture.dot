@@ -1,0 +1,50 @@
+digraph G {
+  rankdir=LR; nodesep=0.45; ranksep=0.7;
+  graph [fontname="Helvetica", fontsize=12, label="ShopCo Multi-Agent Support — Architecture", labelloc=t, fontsize=18, bgcolor="white", pad=0.3];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#F4F6FA", color="#5B6B8C"];
+  edge  [fontname="Helvetica", fontsize=9, color="#5B6B8C"];
+
+  customer [label="Customer\n(web widget / API)", shape=oval, fillcolor="#FFFFFF"];
+  approver [label="Support lead\n(human approver)", shape=oval, fillcolor="#FFFFFF"];
+
+  subgraph cluster_api { label="FastAPI service (Docker)"; style="rounded,dashed"; color="#9AA7C0";
+    api [label="API\n/v1/chat · /v1/approvals"];
+    guard [label="Input guardrail\ninjection · PII redaction", fillcolor="#FDECEC", color="#C0504D"];
+    orch [label="Orchestrator\n(supervisor)", fillcolor="#E8EEFB", color="#3A5BA0"];
+    router [label="Router LLM\nClaude (small model)\nforced 'route' tool", fillcolor="#E8EEFB", color="#3A5BA0"];
+    subgraph cluster_spec { label="Specialist agents (Claude, tool use)"; style="rounded"; color="#3A5BA0";
+      trk [label="Tracking Agent", fillcolor="#E8EEFB"];
+      ref [label="Refund Agent", fillcolor="#E8EEFB"];
+      ins [label="Insurance Agent", fillcolor="#E8EEFB"];
+    }
+    exec [label="Secure Tool Executor\n1 allow-list  2 validate\n3 ownership  4 approval gate\n5 run + retry  6 audit", fillcolor="#FDECEC", color="#C0504D"];
+    outg [label="Output guardrail", fillcolor="#FDECEC", color="#C0504D"];
+  }
+
+  subgraph cluster_tools { label="Tool layer (typed, Pydantic)"; style="rounded"; color="#4F8A5B";
+    tools [label="get_order · track_shipment\ncheck_refund_eligibility · issue_refund*\nget_insurance_policy · file_insurance_claim*\nescalate_to_human\n(* irreversible)", fillcolor="#EAF5EC", color="#4F8A5B"];
+    backend [label="Simulated backends\nOrders · Shipping · Payments\nInsurance · Ticketing (SQLite)", shape=cylinder, fillcolor="#EAF5EC", color="#4F8A5B"];
+  }
+
+  subgraph cluster_state { label="State"; style="rounded"; color="#8A6D3B";
+    sess [label="Session memory\n(transcript)", shape=cylinder, fillcolor="#FBF4E6", color="#8A6D3B"];
+    wm [label="Working memory\n(active order, intent,\nopen approvals, facts)", shape=cylinder, fillcolor="#FBF4E6", color="#8A6D3B"];
+    apq [label="Approval queue", shape=cylinder, fillcolor="#FBF4E6", color="#8A6D3B"];
+    audit [label="Audit log\n(hash-chained)", shape=cylinder, fillcolor="#FBF4E6", color="#8A6D3B"];
+  }
+
+  obs [label="Observability\nJSON logs · OTel spans\nlatency · tokens · cost", shape=note, fillcolor="#FFFFFF"];
+
+  customer -> api -> guard -> orch;
+  orch -> router [label="classify"];
+  orch -> trk; orch -> ref; orch -> ins;
+  orch -> sess [dir=both]; orch -> wm [dir=both];
+  trk -> exec; ref -> exec; ins -> exec;
+  exec -> tools -> backend;
+  exec -> apq [label="irreversible"];
+  approver -> apq [label="approve / reject"];
+  apq -> tools [label="execute after approval", style=dashed];
+  exec -> audit; apq -> audit; guard -> audit [style=dashed];
+  orch -> outg -> api;
+  orch -> obs [style=dotted, arrowhead=none];
+}

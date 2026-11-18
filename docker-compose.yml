@@ -1,0 +1,50 @@
+services:
+  api:
+    build: .
+    image: shopco-support-agents:${IMAGE_TAG:-latest}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      LLM_MODE: ${LLM_MODE:-auto}
+      DATA_DIR: /app/data
+      LOG_FILE: /app/ops/logs/app.jsonl
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-data:/app/data
+      - app-logs:/app/ops/logs
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  # One-shot evaluation job:  docker compose run --rm eval
+  eval:
+    build: .
+    image: shopco-support-agents:${IMAGE_TAG:-latest}
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "eval.run_eval", "--threshold", "0.9"]
+    user: "0:0"   # one-shot job writes results to a host bind mount
+    volumes:
+      - ./eval/results:/app/eval/results
+    profiles: ["eval"]
+
+  # Optional tracing UI:  docker compose --profile observability up
+  # then set OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 in .env and open http://localhost:16686
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    profiles: ["observability"]
+
+volumes:
+  app-data:
+  app-logs:

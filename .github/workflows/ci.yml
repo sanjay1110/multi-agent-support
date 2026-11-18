@@ -1,0 +1,16 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - run: pytest
+      - name: Offline eval gate (mock LLM)
+        run: LLM_MODE=mock python -m eval.run_eval --threshold 0.95
+      - uses: actions/upload-artifact@v4
+        with: { name: eval-results, path: eval/results/ }
+      - run: docker build -t shopco-support-agents:ci .
